@@ -3,6 +3,8 @@ import { Scissors, Calendar, Repeat, Clock, Check, ChevronRight, ChevronLeft, Us
 import { db } from "./firebase.js";
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
 
+const SETTINGS_REF = ["settings", "geral"];
+
 /* ------------------------------------------------------------------
    AGBAREARIA — token system
    Cor:
@@ -38,7 +40,7 @@ function useFonts() {
   }, []);
 }
 
-const SERVICES = [
+const DEFAULT_SERVICES = [
   { id: "corte", name: "Corte", price: 40, note: null },
   { id: "barba", name: "Corte + Barba", price: 60, note: null },
   { id: "sobrancelha", name: "Corte + Sobrancelha", price: 45, note: null },
@@ -129,7 +131,21 @@ export default function AGBarbearia() {
   const [confirmed, setConfirmed] = useState(null);
   const [error, setError] = useState("");
 
+  const [services, setServices] = useState(DEFAULT_SERVICES);
+  const [agendaAberta, setAgendaAberta] = useState(true);
+
   const dates = useMemo(() => nextDates(21), []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, ...SETTINGS_REF), (snap) => {
+      const data = snap.data();
+      if (data) {
+        if (data.services?.length) setServices(data.services);
+        setAgendaAberta(data.agendaAberta !== false);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -277,7 +293,7 @@ export default function AGBarbearia() {
       <section id="servicos" className="max-w-5xl mx-auto px-5 py-10">
         <h2 className="font-display text-3xl text-[#C9962C] mb-6">TABELA DE PREÇOS</h2>
         <div className="border-t border-[#2E2620]">
-          {SERVICES.map((s) => (
+          {services.map((s) => (
             <div key={s.id} className="flex items-baseline justify-between py-3 border-b border-[#2E2620] group">
               <div className="flex items-baseline gap-2 min-w-0">
                 <span className="text-[15px] sm:text-base">{s.name}</span>
@@ -298,6 +314,14 @@ export default function AGBarbearia() {
       {/* Fluxo de agendamento */}
       <section id="agendar" className="max-w-3xl mx-auto px-5 py-12">
         <h2 className="font-display text-3xl text-[#C9962C] mb-2">MARCAR HORÁRIO</h2>
+
+        {!agendaAberta ? (
+          <div className="border border-[#2E2620] rounded-md bg-[#171310] p-6 text-center">
+            <p className="font-medium mb-1">Agenda fechada no momento</p>
+            <p className="text-[#9B9285] text-sm">Não estamos aceitando novos agendamentos agora. Volte mais tarde.</p>
+          </div>
+        ) : (
+          <>
         <p className="text-[#9B9285] text-sm mb-8">Siga os passos abaixo para reservar seu horário.</p>
 
         {step <= 4 && (
@@ -316,7 +340,7 @@ export default function AGBarbearia() {
         {step === 1 && (
           <div>
             <div className="grid sm:grid-cols-2 gap-3 mb-8">
-              {SERVICES.map((s) => (
+              {services.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setService(s)}
@@ -566,6 +590,8 @@ export default function AGBarbearia() {
               Marcar outro horário
             </button>
           </div>
+        )}
+          </>
         )}
       </section>
 

@@ -1,12 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    /* Reservas feitas pelo site do cliente.
+       Qualquer um pode ver e criar uma reserva nova (com nome válido).
+       Editar/cancelar é uma ação do painel admin — como o admin não tem
+       login "de verdade" no banco (ver README), essas ações ficam abertas
+       aqui também; a proteção contra uso indevido é só a tela de login. */
     match /bookings/{bookingId} {
       allow read: if true;
       allow create: if request.resource.data.name is string
                     && request.resource.data.name.size() > 0
                     && request.resource.data.name.size() < 100;
-      allow update, delete: if false;
+      allow update, delete: if true;
+    }
+
+    /* Histórico de atendimentos (usado pelos relatórios do admin). */
+    match /historico/{entryId} {
+      allow read, write: if true;
+    }
+
+    /* Preços e status da agenda (aberta/fechada) — lidos pelo site do
+       cliente, editados pelo painel admin. */
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }

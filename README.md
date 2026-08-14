@@ -11,30 +11,23 @@ agenda em tempo real. Antes de publicar, faça isso uma vez no
 1. No menu lateral, abra **Firestore Database** → **Criar banco de
    dados**. Escolha um local (ex: `southamerica-east1`) e comece em
    **modo de produção**.
-2. Vá na aba **Regras** e cole:
-
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /bookings/{bookingId} {
-         allow read: if true;
-         allow create: if request.resource.data.name is string
-                       && request.resource.data.name.size() > 0
-                       && request.resource.data.name.size() < 100;
-         allow update, delete: if false;
-       }
-     }
-   }
-   ```
-
-   Isso deixa qualquer pessoa **ver** os horários (necessário pro site
-   funcionar) e **criar** uma reserva nova, mas ninguém consegue
-   apagar ou sobrescrever uma reserva já feita por outra pessoa — nem
-   pelo site, nem tentando chamar a API por fora. Se precisar cancelar
-   um horário manualmente, dá pra apagar o documento direto pela aba
-   **Dados** do console.
+2. Vá na aba **Regras** e cole o conteúdo do arquivo [`firestore.rules`](firestore.rules)
+   deste repositório.
 3. Clique em **Publicar**.
+
+   Essas regras deixam qualquer pessoa **ver** os horários e **criar**
+   uma reserva nova (necessário pro site funcionar), e deixam as
+   coleções usadas pelo painel admin (`historico`, `settings`, e
+   editar/cancelar em `bookings`) abertas para leitura e escrita. Isso
+   é uma escolha consciente: o projeto está no plano gratuito (Spark),
+   e login de verdade (Firebase Authentication) exige o plano pago
+   (Blaze) — o uso continuaria gratuito nessa escala, mas exige
+   cadastrar cartão. Enquanto isso, a proteção do painel admin é só a
+   tela de login (usuário/senha em `src/admin/adminAuth.js`); alguém
+   com conhecimento técnico poderia, em teoria, editar o banco direto
+   pela API sem passar pelo site. Se algum dia quiser fechar essa
+   brecha, dá pra migrar pra Firebase Auth de verdade e travar as
+   regras por `request.auth`.
 
 ## Como publicar (GitHub + Vercel)
 
@@ -65,7 +58,24 @@ real — assim que alguém marca um horário, ele já aparece bloqueado
 pra qualquer outra pessoa acessando o site, em qualquer celular ou
 computador.
 
-O app ainda não tem um painel separado para o barbeiro acompanhar a
-agenda — hoje, pra ver as reservas, é preciso abrir a aba **Dados** do
-Firestore no console do Firebase. Se quiser uma telinha própria com a
-lista de horários marcados, dá pra construir depois.
+## Painel do administrador
+
+Acesse `/admin` no site (ex: `agbarbearia.vercel.app/admin`).
+
+- **Usuário:** `agbarbearia`
+- **Senha:** `barbearia`
+
+(login definido em `src/admin/adminAuth.js`, dá pra trocar direto no código.)
+
+O painel tem três abas:
+
+- **Agenda** — lista os horários esporádicos e fixos marcados, com nome,
+  telefone e serviço. Cada reserva tem dois botões: **Atendido** (registra
+  o corte no histórico, usado nos relatórios) e **Cancelar** (libera o
+  horário).
+- **Relatórios** — cortes e faturamento do mês atual, filtro por período
+  (ex: "esta semana"), busca por cliente, e ranking dos top 10 clientes
+  por número de cortes.
+- **Configurações** — editar o preço de cada serviço, e abrir/fechar a
+  agenda (quando fechada, o site do cliente avisa que não está aceitando
+  agendamentos, em vez de mostrar o fluxo de marcação).
