@@ -6,14 +6,22 @@ export default function AdminLogin({ onLoggedIn }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (tryLogin(username, password)) {
-      setError("");
-      onLoggedIn();
-    } else {
-      setError("Usuário ou senha incorretos.");
+    setLoading(true);
+    try {
+      if (await tryLogin(username, password)) {
+        setError("");
+        onLoggedIn();
+      } else {
+        setError("Usuário ou senha incorretos.");
+      }
+    } catch (err) {
+      setError("Não foi possível entrar agora. Verifique sua internet.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,9 +60,10 @@ export default function AdminLogin({ onLoggedIn }) {
         {error && <p className="text-[#E6897B] text-sm mb-4">{error}</p>}
         <button
           type="submit"
-          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-medium bg-[#C9962C] text-[#14100D] hover:bg-[#E6B85C] transition-colors"
+          disabled={loading}
+          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-medium bg-[#C9962C] text-[#14100D] hover:bg-[#E6B85C] transition-colors disabled:opacity-50"
         >
-          <Lock size={16} /> Entrar
+          <Lock size={16} /> {loading ? "Entrando…" : "Entrar"}
         </button>
       </form>
     </div>

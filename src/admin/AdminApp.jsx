@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Scissors, CalendarClock, BarChart3, Settings, LogOut } from "lucide-react";
+import { Scissors, CalendarClock, BarChart3, Settings, UserCog, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLogin from "./AdminLogin.jsx";
 import AdminAgenda from "./AdminAgenda.jsx";
 import AdminRelatorios from "./AdminRelatorios.jsx";
 import AdminConfig from "./AdminConfig.jsx";
+import AdminAccount from "./AdminAccount.jsx";
 import { isLoggedIn, logout } from "./adminAuth.js";
 
 const TABS = [
   { key: "agenda", label: "Agenda", icon: CalendarClock, Component: AdminAgenda },
   { key: "relatorios", label: "Relatórios", icon: BarChart3, Component: AdminRelatorios },
   { key: "config", label: "Configurações", icon: Settings, Component: AdminConfig },
+  { key: "conta", label: "Conta", icon: UserCog, Component: AdminAccount },
 ];
 
 export default function AdminApp() {

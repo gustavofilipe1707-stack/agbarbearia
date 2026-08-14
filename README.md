@@ -79,3 +79,21 @@ O painel tem três abas:
 - **Configurações** — editar o preço de cada serviço, e abrir/fechar a
   agenda (quando fechada, o site do cliente avisa que não está aceitando
   agendamentos, em vez de mostrar o fluxo de marcação).
+- **Conta** — trocar o usuário/senha do login do admin.
+
+A aba **Relatórios** também tem um formulário para adicionar um corte
+manualmente (útil pra lançar atendimentos que não passaram pelo site) e
+um botão de excluir em cada linha do histórico.
+
+## Confirmação por WhatsApp
+
+Ao concluir o agendamento, o site abre automaticamente uma conversa no
+WhatsApp (`wa.me`) com a barbearia, já com a mensagem de confirmação
+preenchida (cliente, serviço, valor, dia e hora) — o cliente só precisa
+tocar em enviar. O número está fixo em `src/App.jsx` (`WHATSAPP_NUMBER`).
+Como o site não tem servidor por trás, esse é o jeito de fazer isso sem
+contratar a API paga do WhatsApp Business: não dá pra enviar 100%
+sozinho sem nenhuma ação do cliente, mas fica a um toque de distância.
+Alguns navegadores podem bloquear a abertura automática (pop-up) — por
+isso também aparece um botão "Confirmar no WhatsApp" na tela de
+sucesso, como reforço.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Scissors, Calendar, Repeat, Clock, Check, ChevronRight, ChevronLeft, User, X, AlertCircle } from "lucide-react";
+import { Scissors, Calendar, Repeat, Clock, Check, ChevronRight, ChevronLeft, User, X, AlertCircle, MessageCircle } from "lucide-react";
 import { db } from "./firebase.js";
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
 
@@ -54,6 +54,17 @@ const DEFAULT_SERVICES = [
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const TIME_SLOTS = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
+
+const WHATSAPP_NUMBER = "5511950718724";
+
+function buildWhatsAppLink({ name, serviceName, price, whenLabel, time }) {
+  const msg =
+    `Olá! Confirmando meu agendamento na AGBARBEARIA:\n\n` +
+    `Cliente: ${name}\n` +
+    `Serviço: ${serviceName} — R$ ${fmtPrice(price)}\n` +
+    `Quando: ${whenLabel} às ${time}`;
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+}
 
 function fmtPrice(v) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -220,6 +231,17 @@ export default function AGBarbearia() {
         }
         tx.set(ref, payload);
       });
+      const whenLabel =
+        mode === "esporadico"
+          ? `${WEEKDAYS[selectedDate.getDay()]}, ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}`
+          : `toda ${WEEKDAYS[selectedWeekday]}`;
+      const waLink = buildWhatsAppLink({
+        name: clientName.trim(),
+        serviceName: service.name,
+        price: service.price,
+        whenLabel,
+        time: selectedTime,
+      });
       setConfirmed({
         mode,
         service: service.name,
@@ -228,8 +250,10 @@ export default function AGBarbearia() {
         date: mode === "esporadico" ? selectedDate : null,
         weekday: mode === "fixo" ? selectedWeekday : null,
         name: clientName.trim(),
+        waLink,
       });
       setStep(5);
+      window.open(waLink, "_blank");
     } catch (e) {
       if (e.message === "SLOT_TAKEN") {
         setError(mode === "esporadico" ? "Esse horário acabou de ser reservado. Escolha outro." : "Esse horário fixo já está ocupado. Escolha outro.");
@@ -583,12 +607,25 @@ export default function AGBarbearia() {
                 : `toda ${WEEKDAYS[confirmed.weekday]}`}{" "}
               às <span className="font-mono text-[#F2EAD8]">{confirmed.time}</span>.
             </p>
-            <button
-              onClick={resetFlow}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-medium border border-[#C9962C] text-[#C9962C] hover:bg-[#1D1712] transition-colors"
-            >
-              Marcar outro horário
-            </button>
+            <p className="text-[#9B9285] text-xs mb-6">
+              Abrimos o WhatsApp com sua confirmação — se não abriu, toque no botão abaixo.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a
+                href={confirmed.waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-medium bg-[#25D366] text-[#0b1a10] hover:brightness-110 transition-all"
+              >
+                <MessageCircle size={16} /> Confirmar no WhatsApp
+              </a>
+              <button
+                onClick={resetFlow}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-medium border border-[#C9962C] text-[#C9962C] hover:bg-[#1D1712] transition-colors"
+              >
+                Marcar outro horário
+              </button>
+            </div>
           </div>
         )}
           </>

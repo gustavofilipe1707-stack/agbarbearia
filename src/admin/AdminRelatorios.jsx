@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Scissors, DollarSign, Users, Trophy } from "lucide-react";
+import { Scissors, DollarSign, Users, Trophy, Plus, Trash2 } from "lucide-react";
 import { db } from "../firebase.js";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { fmtPrice, fmtDate, toDateInputValue, startOfWeek, endOfWeek, startOfMonth, endOfMonth, normalizeName } from "./adminUtils.js";
 
 function StatTile({ icon: Icon, label, value }) {
@@ -15,13 +15,36 @@ function StatTile({ icon: Icon, label, value }) {
   );
 }
 
+function HistoricoRow({ h, onDelete }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+      <span className="truncate flex-1 min-w-0">{h.name}</span>
+      <span className="text-[#9B9285] text-xs shrink-0">{h.service}</span>
+      <span className="text-xs shrink-0">{fmtDate(h.date)}</span>
+      <span className="font-mono text-[#C9962C] shrink-0">R$ {fmtPrice(h.price)}</span>
+      <button
+        onClick={() => onDelete(h)}
+        title="Excluir"
+        className="text-[#6b6459] hover:text-[#E6897B] transition-colors shrink-0"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
 export default function AdminRelatorios() {
   const [historico, setHistorico] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [dateFrom, setDateFrom] = useState(toDateInputValue(startOfWeek(new Date())));
   const [dateTo, setDateTo] = useState(toDateInputValue(endOfWeek(new Date())));
   const [clientQuery, setClientQuery] = useState("");
+
+  const [form, setForm] = useState({ name: "", phone: "", serviceId: "", price: "", date: toDateInputValue(new Date()) });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "historico"), (snap) => {
@@ -34,6 +57,13 @@ export default function AdminRelatorios() {
       list.sort((a, b) => b.date - a.date);
       setHistorico(list);
       setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "geral"), (snap) => {
+      setServices(snap.data()?.services || []);
     });
     return () => unsub();
   }, []);
@@ -70,6 +100,45 @@ export default function AdminRelatorios() {
   }, [historico]);
   const maxCount = top10[0]?.count || 1;
 
+  const excluirCorte = async (h) => {
+    if (!window.confirm(`Excluir o corte de ${h.name} (${fmtDate(h.date)})?`)) return;
+    await deleteDoc(doc(db, "historico", h.id));
+  };
+
+  const handleServiceChange = (serviceId) => {
+    const s = services.find((x) => x.id === serviceId);
+    setForm((f) => ({ ...f, serviceId, price: s ? String(s.price) : f.price }));
+  };
+
+  const adicionarCorte = async (e) => {
+    e.preventDefault();
+    setFormError("");
+    if (!form.name.trim()) {
+      setFormError("Informe o nome do cliente.");
+      return;
+    }
+    const service = services.find((s) => s.id === form.serviceId);
+    if (!service && !form.price) {
+      setFormError("Escolha um serviço ou informe o valor.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addDoc(collection(db, "historico"), {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        service: service ? service.name : "Outro",
+        price: Number(form.price) || 0,
+        mode: "manual",
+        date: new Date(`${form.date}T12:00:00`),
+        createdAt: serverTimestamp(),
+      });
+      setForm({ name: "", phone: "", serviceId: "", price: "", date: toDateInputValue(new Date()) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <p className="text-sm text-[#6b6459]">Carregando relatórios…</p>;
 
   return (
@@ -80,6 +149,76 @@ export default function AdminRelatorios() {
           <StatTile icon={DollarSign} label="Faturamento no mês" value={`R$ ${fmtPrice(faturamentoNoMes)}`} />
           <StatTile icon={Users} label="Clientes atendidos no mês" value={clientesUnicosNoMes} />
         </div>
+      </section>
+
+      <section>
+        <h3 className="flex items-center gap-2 text-lg mb-3" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+          <Plus size={16} className="text-[#C9962C]" /> ADICIONAR CORTE MANUALMENTE
+        </h3>
+        <form onSubmit={adicionarCorte} className="border border-[#2E2620] rounded-md bg-[#171310] p-4 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs uppercase tracking-wide text-[#9B9285] block mb-1">Nome do cliente</label>
+              <input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                className="w-full bg-[#14100D] border border-[#2E2620] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C9962C]"
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-[#9B9285] block mb-1">Telefone (opcional)</label>
+              <input
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                className="w-full bg-[#14100D] border border-[#2E2620] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C9962C]"
+              />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs uppercase tracking-wide text-[#9B9285] block mb-1">Serviço</label>
+              <select
+                value={form.serviceId}
+                onChange={(e) => handleServiceChange(e.target.value)}
+                className="w-full bg-[#14100D] border border-[#2E2620] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C9962C]"
+              >
+                <option value="">Outro / avulso</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-[#9B9285] block mb-1">Valor (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={form.price}
+                onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                className="w-full bg-[#14100D] border border-[#2E2620] rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#C9962C]"
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-[#9B9285] block mb-1">Data</label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                className="w-full bg-[#14100D] border border-[#2E2620] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C9962C]"
+              />
+            </div>
+          </div>
+          {formError && <p className="text-[#E6897B] text-sm">{formError}</p>}
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-medium bg-[#C9962C] text-[#14100D] hover:bg-[#E6B85C] transition-colors disabled:opacity-50"
+          >
+            <Plus size={15} /> {saving ? "Adicionando…" : "Adicionar corte"}
+          </button>
+        </form>
       </section>
 
       <section>
@@ -122,14 +261,7 @@ export default function AdminRelatorios() {
           {noRange.length === 0 ? (
             <p className="text-sm text-[#6b6459] p-4">Nenhum corte nesse período.</p>
           ) : (
-            noRange.map((h) => (
-              <div key={h.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                <span className="truncate">{h.name}</span>
-                <span className="text-[#9B9285] text-xs">{h.service}</span>
-                <span className="text-xs">{fmtDate(h.date)}</span>
-                <span className="font-mono text-[#C9962C]">R$ {fmtPrice(h.price)}</span>
-              </div>
-            ))
+            noRange.map((h) => <HistoricoRow key={h.id} h={h} onDelete={excluirCorte} />)
           )}
         </div>
       </section>
@@ -153,14 +285,7 @@ export default function AdminRelatorios() {
               {porCliente.length === 0 ? (
                 <p className="text-sm text-[#6b6459] p-4">Nenhum atendimento encontrado.</p>
               ) : (
-                porCliente.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                    <span className="truncate">{h.name}</span>
-                    <span className="text-[#9B9285] text-xs">{h.service}</span>
-                    <span className="text-xs">{fmtDate(h.date)}</span>
-                    <span className="font-mono text-[#C9962C]">R$ {fmtPrice(h.price)}</span>
-                  </div>
-                ))
+                porCliente.map((h) => <HistoricoRow key={h.id} h={h} onDelete={excluirCorte} />)
               )}
             </div>
           </>
